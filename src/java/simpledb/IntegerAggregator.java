@@ -14,6 +14,13 @@ public class IntegerAggregator implements Aggregator {
 
     private Map<Object, Integer> aggregates;
     private Map<Object, Integer> aggregatesCount;
+
+    //for no grouping
+    private IntField no_grouping;
+    private int count = 0;
+
+    private TupleDesc tupleDesc = null;
+
     private boolean firstTuple = true;
 
     private String gbfield_name = null;
@@ -40,6 +47,7 @@ public class IntegerAggregator implements Aggregator {
         this.gbfieldtype = gbfieldtype;
         this.afield = afield;
         this.what = what;
+        this.no_grouping = null;
 
         aggregates = new HashMap<Object, Integer>();
         aggregatesCount = new HashMap<Object, Integer>();
@@ -53,22 +61,24 @@ public class IntegerAggregator implements Aggregator {
      *            the Tuple containing an aggregate field and a group-by field
      */
     public void mergeTupleIntoGroup(Tuple tup) {
+        count++;
         // some code goes here
         Object groupByField = null;
+
+        if (firstTuple) {
+                if (gbfield != NO_GROUPING) {
+                        gbfieldtype = tup.getField(gbfield).getType();
+                        gbfield_name = tup.getTupleDesc().getFieldName(gbfield);
+                }
+                afield_name = tup.getTupleDesc().getFieldName(afield);
+                firstTuple = false;
+        }
+
         if (gbfield != NO_GROUPING) {
                 if (gbfieldtype == Type.INT_TYPE) {
                         groupByField = new Integer(((IntField)tup.getField(gbfield)).getValue());
                 } else if (gbfieldtype == Type.STRING_TYPE) {
                         groupByField = ((StringField) tup.getField(gbfield)).getValue();
-                }
-
-                if (firstTuple) {
-                        if (gbfield != NO_GROUPING) {
-                                gbfieldtype = tup.getField(gbfield).getType();
-                                gbfield_name = tup.getTupleDesc().getFieldName(gbfield);
-                        }
-                        afield_name = tup.getTupleDesc().getFieldName(afield);
-                        firstTuple = false;
                 }
 
                 int val = ((IntField) tup.getField(afield)).getValue();
@@ -114,9 +124,85 @@ public class IntegerAggregator implements Aggregator {
                                 
                 }
 
+        } else { // if there is no grouping
+                IntField newval = (IntField)tup.getField(afield);
+                if (no_grouping == null) {
+                        no_grouping = newval;
+                        return;
+                }
+                switch (what) {
+                        case MIN: {
+                                          no_grouping = (no_grouping.getValue() > newval.getValue()) ? newval : no_grouping;
+                                          break;
+                        }
+                        case MAX: {
+                                          no_grouping = (no_grouping.getValue() < newval.getValue()) ? newval : no_grouping;
+                                          break;
+                        }
+                        case SUM: 
+                        case AVG: {
+                                          no_grouping = new IntField(no_grouping.getValue() + newval.getValue());
+                                          break;
+                        }
+                        case COUNT: {
+                                          no_grouping = new IntField(count);
+                                          break;
+                        }
+                }
+
         }
 
 
+    }
+
+    private ArrayList<Tuple> createTupleList() {
+            ArrayList<Tuple> tupleList = new ArrayList<Tuple>();
+            String aggregate_name = what + " (" + afield_name + ")";
+            if (gbfield == Aggregator.NO_GROUPING) {
+                    TupleDesc td = new TupleDesc(new Type[] {Type.INT_TYPE}, new String[] {aggregate_name});
+                    this.tupleDesc = td;
+                    Tuple newtuple = new Tuple(td);
+                    if (what == Aggregator.Op.AVG) {
+                         newtuple.setField(0, new IntField(no_grouping.getValue() / count));
+                    } else {
+                         newtuple.setField(0, no_grouping);
+                    }
+                    tupleList.add(newtuple);
+            } else {
+                    TupleDesc td = new TupleDesc(new Type[] { gbfieldtype, Type.INT_TYPE},
+                                    new String[] {gbfield_name, aggregate_name});
+                    this.tupleDesc = td;
+                    for (Map.Entry<Object, Integer> entry : aggregates.entrySet()) {
+                            Tuple tuple = new Tuple(tupleDesc);
+                            int aggVal = 0;
+                            switch (what) {
+                                    case AVG: {
+                                                     Integer _count = aggregatesCount.get(entry.getKey());
+                                                     if (_count == null) { //for some reason count is null
+                                                             System.out.println("WHAT THE FUUUU222");
+                                                     }
+                                                     aggVal = entry.getValue() / _count; //need to round?
+                                                     break;
+                                    }
+                                    case COUNT: {
+                                                     aggVal = aggregatesCount.get(entry.getKey());
+                                                     break;
+                                    }
+                                    default: {
+                                                     aggVal = entry.getValue();
+                                                     break;
+                                    }
+                            }
+                            if (gbfieldtype == Type.INT_TYPE) {
+                                    tuple.setField(0, new IntField((Integer) entry.getKey()));
+                            } else if (gbfieldtype == Type.STRING_TYPE) {
+                                    tuple.setField(0, new StringField((String)entry.getKey(), Type.STRING_TYPE.getLen()));
+                            }
+                            tuple.setField(1, new IntField(aggVal));
+                            tupleList.add(tuple);
+                    }
+            }
+            return tupleList;
     }
 
     /**
@@ -131,53 +217,7 @@ public class IntegerAggregator implements Aggregator {
         // some code goes here
         //throw new
         //UnsupportedOperationException("please implement me for lab2");
-        List<Tuple> tupleList = new ArrayList<Tuple>();
-        int fafield = 1;
-
-        String aggregate_name = what + " (" + afield_name + ")";
-        TupleDesc tupleDesc = null;
-        if (gbfield != NO_GROUPING) {
-                Type[] typeArray = {gbfieldtype, Type.INT_TYPE };
-                String[] fieldArray = {gbfield_name, aggregate_name};
-                tupleDesc = new TupleDesc(typeArray, fieldArray);
-        } else {
-                fafield = 0;
-                Type[] typeArray = {Type.INT_TYPE};
-                String[] fieldArray = {aggregate_name};
-                tupleDesc = new TupleDesc(typeArray, fieldArray);
-        }
-
-        for (Map.Entry<Object, Integer> entry : aggregates.entrySet()) {
-                Tuple tuple = new Tuple(tupleDesc);
-                int aggVal = 0;
-                switch (what) {
-                        case AVG: {
-                                         Integer count = aggregatesCount.get(entry.getKey());
-                                         if (count == null) { //for some reason count is null
-                                                 System.out.println("WHAT THE FUUUU222");
-                                         }
-                                         aggVal = entry.getValue() / count; //need to round?
-                                         break;
-                        }
-                        case COUNT: {
-                                         aggVal = aggregatesCount.get(entry.getKey());
-                                         break;
-                        }
-                        default: {
-                                         aggVal = entry.getValue();
-                                         break;
-                        }
-                }
-                if (gbfield != NO_GROUPING) {
-                        if (gbfieldtype == Type.INT_TYPE) {
-                                tuple.setField(0, new IntField((Integer) entry.getKey()));
-                        } else if (gbfieldtype == Type.STRING_TYPE) {
-                                tuple.setField(0, new StringField((String)entry.getKey(), Type.STRING_TYPE.getLen()));
-                        }
-                }
-                tuple.setField(fafield, new IntField(aggVal));
-                tupleList.add(tuple);
-        }
-        return new TupleIterator(tupleDesc, tupleList);
+        List<Tuple> l = createTupleList();
+        return new TupleIterator(this.tupleDesc, l);
     }
 }
