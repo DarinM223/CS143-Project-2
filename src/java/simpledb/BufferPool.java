@@ -171,6 +171,14 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+    	DbFile Dbf = Database.getCatalog().getDatabaseFile(tableId);
+    	ArrayList<Page> pages = Dbf.insertTuple(tid, t);
+    	for(Page p : pages)
+    	{
+    		p.markDirty(true, tid);
+    		//now update the cache 
+    		PageId_to_Page.put(p.getId(),p);
+    	}
     }
 
     /**
@@ -189,6 +197,15 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+    	int tableId = t.getRecordId().getPageId().getTableId();
+        DbFile Dbf = Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> pages = Dbf.deleteTuple(tid, t);
+        for (Page p : pages) 
+        {
+            p.markDirty(true, tid);
+            //now update the cache
+            PageId_to_Page.put(p.getId(),p);
+        }
     }
 
     /**
@@ -241,6 +258,28 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+    	boolean evicted = false;
+        Page page;
+        // Random replacement policy
+        for (PageId i : PageId_to_Page.keySet())
+        {
+            page = PageId_to_Page.get(i);
+            // Flush to disk, evict the page
+            try
+            {
+                flushPage(i);
+                PageId_to_Page.remove(i);
+                evicted = true;
+                break;
+            }
+            catch (IOException e) 
+            { 
+            	e.printStackTrace();
+            }
+        }
+        if (!evicted) {
+            throw new DbException("Error: Cannot evict page");
+        }
     }
 
 }
