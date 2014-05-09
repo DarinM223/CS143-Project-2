@@ -199,7 +199,7 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+    	
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -219,6 +219,12 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+    	Page page = PageId_to_Page.get(pid);
+    	if(page != null && page.isDirty() != null)
+    	{
+    		Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(page);
+    		page.markDirty(false, page.isDirty());
+    	}
     }
 
     /** Write all pages of the specified transaction to disk.
