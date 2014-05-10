@@ -7,6 +7,7 @@ import java.util.*;
  * The delete operator. Delete reads tuples from its child operator and removes
  * them from the table they belong to.
  */
+
 public class Delete extends Operator {
 
     private static final long serialVersionUID = 1L;
@@ -47,8 +48,10 @@ public class Delete extends Operator {
     	super.open();
 
     	int tupleCount = 0;
+    	//keep a list of the child operators
     	if(child.hasNext())
     	{
+    		//add them in order of query processing
     		List<Tuple> tupleList = new LinkedList<Tuple>();
     		while(child.hasNext())
     		{
@@ -58,6 +61,7 @@ public class Delete extends Operator {
 
     		try
     		{
+    			//delete the tuples in cases of join
     			for(Tuple t : tupleList)
     			{
     				pool.deleteTuple(transId, t);
@@ -73,13 +77,13 @@ public class Delete extends Operator {
 
     public void close() {
         // some code goes here
-	child.close();
-	super.close();
+    	child.close();
+    	super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
-	this.child.rewind();
+    	this.child.rewind();
     }
 
     /**
@@ -93,8 +97,12 @@ public class Delete extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+    	//if there are more tuples
         if(!tuples.isEmpty())
-		return tuples.remove(0);
+        {
+        	//remove the one of the tuples
+        	return tuples.remove(0);
+        }
 	else
 		return null;
     }
@@ -107,8 +115,9 @@ public class Delete extends Operator {
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
-	child = children[0];
+    	// some code goes here
+    	child = children[0];
     }
-
+    
 }
+

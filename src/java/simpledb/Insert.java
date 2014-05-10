@@ -117,6 +117,8 @@ public class Insert extends Operator {
     @Override
     public DbIterator[] getChildren() {
         // some code goes here
+    	
+    	//should only have 1 element, the child
         return new DbIterator[] { child };
     }
 
