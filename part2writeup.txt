@@ -21,7 +21,10 @@ the necessary functions.
 
 Describe any missing or incomplete elements of your code.
 -No parts are missing except for the parts that say not necessary for lab1 and 
-lab 2. There might be bugs that fall outside of the case tests.
+lab 2. There might be bugs that fall outside of the case tests. We ran into
+one problem where we had to use the solution implementation of SeqScan and 
+TupleDesc otherwise the SQL test did not work and output the same message.
+
 
 Describe how long you spent on the lab, and whether there was anything you found 
 particularly difficult or confusing.
