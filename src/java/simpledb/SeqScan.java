@@ -11,12 +11,32 @@ public class SeqScan implements DbIterator {
 
     private static final long serialVersionUID = 1L;
 
-    private TransactionId tid;
-    private int tableid;
-    private String tableAlias;
-    private DbFileIterator inner;
-    private TupleDesc tupleDesc;
-
+    /**
+     * Is the scan open?
+     */
+    private boolean m_isOpen = false;
+    private TransactionId m_tid;
+    
+    /**
+     * The tuple description of the tuples being returned by this scan.
+     */
+    private TupleDesc m_td;
+    
+    /**
+     * An iterator over the tuples in this table.
+     */
+    private transient DbFileIterator m_it;
+    
+    /**
+     * The name of the table being scanned
+     */
+    private String m_tablename;
+    
+    /**
+     * The alias of the table.
+     */
+    private String m_alias;
+    
     /**
      * Creates a sequential scan over the specified table as a part of the
      * specified transaction.
@@ -35,28 +55,8 @@ public class SeqScan implements DbIterator {
      */
     public SeqScan(TransactionId tid, int tableid, String tableAlias) {
         // some code goes here
-        this.tid = tid;
-        this.tableid = tableid;
-        this.tableAlias = tableAlias;
-        this.tupleDesc = getPrefixTupleDesc(tableid, tableAlias);
-        this.inner = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
-    }
-
-    private static TupleDesc getPrefixTupleDesc(int tableId, String tableAlias) {
-            String tAlias = (tableAlias == null) ? "null" : tableAlias;
-            TupleDesc baseTDesc = Database.getCatalog().getTupleDesc(tableId);
-            int tupleDescSize = baseTDesc.numFields();
-
-            Type[] nTypes = new Type[tupleDescSize];
-            String[] nFields = new String[tupleDescSize];
-
-            for (int i = 0; i < tupleDescSize; i++) {
-                    Type t = baseTDesc.getFieldType(i);
-                    String f = baseTDesc.getFieldName(i);
-                    nTypes[i] = t;
-                    nFields[i] = tAlias + "." + ((f == null) ? "null" : f);
-            }
-            return new TupleDesc(nTypes, nFields);
+        m_tid = tid;
+        reset(tableid,tableAlias);
     }
 
     /**
@@ -65,16 +65,16 @@ public class SeqScan implements DbIterator {
      *       be the actual name of the table in the catalog of the database
      * */
     public String getTableName() {
-            return Database.getCatalog().getTableName(tableid);
+    	return m_tablename;
     }
     
     /**
      * @return Return the alias of the table this operator scans. 
      * */
     public String getAlias()
-    {
-        // some code goes here
-        return tableAlias;
+    {   
+    	// some code goes here
+    	return m_alias;
     }
 
     /**
@@ -91,8 +91,21 @@ public class SeqScan implements DbIterator {
      */
     public void reset(int tableid, String tableAlias) {
         // some code goes here
-        this.tableid = tableid;
-        this.tableAlias = tableAlias;
+        m_isOpen=false;
+        m_alias = tableAlias;
+        m_tablename = Database.getCatalog().getTableName(tableid);
+        m_it = Database.getCatalog().getDatabaseFile(tableid).iterator(m_tid);
+        m_td = Database.getCatalog().getTupleDesc(tableid);
+        
+        
+        // Create TupleDesc using tableAlias 
+        String[] names = new String[m_td.numFields()];
+        Type[] types   = new Type[m_td.numFields()];
+        for (int i = 0; i < m_td.numFields(); i++) {                     
+            names[i] = tableAlias + "." + m_td.getFieldName(i);
+            types[i] = m_td.getFieldType(i);
+        }
+        m_td = new TupleDesc(types, names);
     }
 
     public SeqScan(TransactionId tid, int tableid) {
@@ -101,7 +114,11 @@ public class SeqScan implements DbIterator {
 
     public void open() throws DbException, TransactionAbortedException {
         // some code goes here
-        this.inner.open();
+        if (m_isOpen)
+            throw new DbException("double open on one DbIterator.");
+
+        m_it.open();
+        m_isOpen = true;
     }
 
     /**
@@ -114,29 +131,52 @@ public class SeqScan implements DbIterator {
      *         prefixed with the tableAlias string from the constructor.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return Database.getCatalog().getTupleDesc(tableid);
+        // some code goes here        
+        return m_td;
+
     }
 
+    /**     
+     * @throws IllegalStateException If !isOpen().
+     */
+    protected void checkOpen() throws IllegalStateException {
+    	if (!m_isOpen) {
+            throw new IllegalStateException("iterator is closed");    	
+    	}
+    }
+
+    /**
+     * @return true If more Tuples exist. 
+     */
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return this.inner.hasNext();
+        checkOpen();
+    	return m_it.hasNext();
     }
 
+    /**
+     * @return The next Tuple.
+     */
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
-        return this.inner.next();
+    	checkOpen();
+        return m_it.next();
     }
 
+    /**
+     * Close the iterator.
+     */
     public void close() {
         // some code goes here
-        this.inner.close();
+        m_it.close();
+        m_isOpen = false;
     }
 
     public void rewind() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
-        this.inner.rewind();
+    	close();
+    	open();
     }
 }
