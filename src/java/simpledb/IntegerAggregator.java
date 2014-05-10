@@ -10,17 +10,20 @@ public class IntegerAggregator implements Aggregator {
     private int gbfield;
     private Type gbfieldtype;
     private int afield;
+    //operator to apply
     private Op what;
 
     private Map<Object, Integer> aggregates;
+    //count of aggregate (for AVG and COUNT)
     private Map<Object, Integer> aggregatesCount;
 
-    //for no grouping
+    //Field for no grouping
     private IntField no_grouping;
+    //count for no grouping
     private int count = 0;
 
     private TupleDesc tupleDesc = null;
-
+    //if its the first tuple, get type and name from it
     private boolean firstTuple = true;
 
     private String gbfield_name = null;
@@ -130,6 +133,7 @@ public class IntegerAggregator implements Aggregator {
                         no_grouping = newval;
                         return;
                 }
+                //apply operator between the no_grouping Field and the Tuple's field
                 switch (what) {
                         case MIN: {
                                           no_grouping = (no_grouping.getValue() > newval.getValue()) ? newval : no_grouping;
@@ -155,10 +159,11 @@ public class IntegerAggregator implements Aggregator {
 
     }
 
+    //creates list of tuples that store the results of the specified operator
     private ArrayList<Tuple> createTupleList() {
             ArrayList<Tuple> tupleList = new ArrayList<Tuple>();
             String aggregate_name = what + " (" + afield_name + ")";
-            if (gbfield == Aggregator.NO_GROUPING) {
+            if (gbfield == Aggregator.NO_GROUPING) { //for no grouping add one tuple using the no_grouping field and count
                     TupleDesc td = new TupleDesc(new Type[] {Type.INT_TYPE}, new String[] {aggregate_name});
                     this.tupleDesc = td;
                     Tuple newtuple = new Tuple(td);
@@ -168,7 +173,7 @@ public class IntegerAggregator implements Aggregator {
                          newtuple.setField(0, no_grouping);
                     }
                     tupleList.add(newtuple);
-            } else {
+            } else { //for a grouping, iterate through aggregate list and add Tuples with the results to the list
                     TupleDesc td = new TupleDesc(new Type[] { gbfieldtype, Type.INT_TYPE},
                                     new String[] {gbfield_name, aggregate_name});
                     this.tupleDesc = td;
@@ -179,9 +184,9 @@ public class IntegerAggregator implements Aggregator {
                                     case AVG: {
                                                      Integer _count = aggregatesCount.get(entry.getKey());
                                                      if (_count == null) { //for some reason count is null
-                                                             System.out.println("WHAT THE FUUUU222");
+                                                             throw new RuntimeException("What the FUUU");
                                                      }
-                                                     aggVal = entry.getValue() / _count; //need to round?
+                                                     aggVal = entry.getValue() / _count; 
                                                      break;
                                     }
                                     case COUNT: {

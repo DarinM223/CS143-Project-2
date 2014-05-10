@@ -73,6 +73,7 @@ public class Filter extends Operator {
         //return null;
         while (child.hasNext()) {
                 Tuple t = child.next();
+                //return if it passes the predicate
                 if (getPredicate().filter(t)) {
                         return t;
                 }

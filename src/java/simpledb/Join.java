@@ -109,30 +109,37 @@ public class Join extends Operator {
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
-    //change this function to make more sense
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
         //return null;
+        //loop through child 1 tuples
         while (child1.hasNext() || prevCh1Tuple != null) {
                 if (prevCh1Tuple != null) {
+                        //loop through child 2 tuples
                         while (child2.hasNext()) {
                                 Tuple child2Tuple = child2.next();
+                                //if the predicate applies to the two tuples
                                 if (p.filter(prevCh1Tuple, child2Tuple)) {
+                                        //create a tuple that merges the two
                                         Tuple merged = new Tuple(getTupleDesc());
                                         int child1_numfields = prevCh1Tuple.getTupleDesc().numFields();
                                         int child2_numfields =  child2Tuple.getTupleDesc().numFields();
+                                        //set the fields for the first child
                                         for (int i = 0; i < child1_numfields; i++) {
                                                 merged.setField(i, prevCh1Tuple.getField(i));
                                         }
+                                        //set the fields for the second child after
                                         for (int i = 0; i < child2_numfields; i++) {
                                                 merged.setField(i+child1_numfields, child2Tuple.getField(i));
                                         }
+                                        //return the merged tuple
                                         return merged;
                                 }
                         }
                         //if run out of child2 tuples, rewind so we can check next child1 tuple
                         child2.rewind();
                 }                
+                //set child 1 to the next child
                 if (child1.hasNext()) {
                        prevCh1Tuple = child1.next(); 
                 } else {

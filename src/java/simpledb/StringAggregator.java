@@ -15,11 +15,14 @@ public class StringAggregator implements Aggregator {
     private int afield;
     private Op what;
 
+    //count of aggregate (for COUNT)
     private Map<Object, Integer> aggregatesCount;
-
+    //check for first tuple to extract field name and type
     private boolean firstTuple = true;
 
+    //stores the field result from a no grouping
     private IntField no_grouping;
+    //stores the count from a no grouping
     private int count = 0;
 
     private TupleDesc tupleDesc = null;
@@ -44,6 +47,7 @@ public class StringAggregator implements Aggregator {
         this.what = what;
         this.no_grouping = null;
 
+        //count operation only supported
         if (!what.toString().equals("count")) {
                 throw new IllegalArgumentException("Invalid Operator! Only count supported");
         }
@@ -60,6 +64,7 @@ public class StringAggregator implements Aggregator {
         Object groupByField = null;
         count++;
 
+        //get field type and name for group by and field name for aggregate
         if (firstTuple) {
                 if (gbfield != NO_GROUPING) {
                         gbfieldtype = tup.getField(gbfield).getType();
@@ -69,7 +74,7 @@ public class StringAggregator implements Aggregator {
                 firstTuple = false;
         }
 
-        if (gbfield != NO_GROUPING) {
+        if (gbfield != NO_GROUPING) { 
                 if (gbfieldtype == Type.INT_TYPE) {
                         groupByField = new Integer(((IntField)tup.getField(gbfield)).getValue());
                 } else if (gbfieldtype == Type.STRING_TYPE) {
@@ -77,22 +82,25 @@ public class StringAggregator implements Aggregator {
                 }
                 switch (what) {
                         case COUNT: {
+                                //get current count and put count+1
                                 Integer aggregate_count = aggregatesCount.get(groupByField);
                                 aggregatesCount.put(groupByField, (aggregate_count != null ? aggregate_count + 1 : 1));
                                 break;
                         }
                 }
-        } else {
-                no_grouping = new IntField(count);
+        } else { //no grouping
+                no_grouping = new IntField(count); //create a new integer field with the count
                 return;
         }
             
     }
 
+   //creates list of tuples that store the results of the specified operator (COUNT in this case)
    private ArrayList<Tuple> createTupleList() {
            ArrayList<Tuple> tupleList = new ArrayList<Tuple>();
            String aggregate_name = what + " (" + afield_name + ")";
-           if (gbfield == Aggregator.NO_GROUPING) {
+           if (gbfield == Aggregator.NO_GROUPING) { //no grouping
+                   //add the no_grouping tuple to the tupleList only
                    TupleDesc td = new TupleDesc(new Type[] {Type.INT_TYPE }, new String[] { aggregate_name });
                    this.tupleDesc = td;
                    Tuple newtuple = new Tuple(td);
@@ -103,6 +111,7 @@ public class StringAggregator implements Aggregator {
                                    new String[] {gbfield_name, aggregate_name});
                    this.tupleDesc = td;
 
+                   //loop through the aggregates and add the result tuples into the tupleList
                    for (Map.Entry<Object, Integer> entry : aggregatesCount.entrySet()) {
                            Tuple tuple = new Tuple(tupleDesc);
                            int aggVal = 0;

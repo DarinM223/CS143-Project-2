@@ -123,6 +123,7 @@ public class HeapFile implements DbFile {
 
         ArrayList<Page> pages = new ArrayList<Page>();
 
+        //build list of pages
         for (int i = 0; i < this.numPages(); i++) {
                 PageId pid = new HeapPageId(getId(), i);
                 HeapPage page = (HeapPage) pool.getPage(tid, pid, Permissions.READ_WRITE);
@@ -132,6 +133,7 @@ public class HeapFile implements DbFile {
                         break;
                 }
         }
+        //if there are no pages, create page data
         if (pages.isEmpty()) {
                 PageId pid = new HeapPageId(getId(), numPages());
                 try {
@@ -163,6 +165,7 @@ public class HeapFile implements DbFile {
         HeapPage page = (HeapPage) pool.getPage(tid, pid, Permissions.READ_WRITE);
         page.deleteTuple(t);
         ArrayList<Page> retList = new ArrayList<Page>();
+        //add deleted page to return list
         retList.add(page);
         return retList;
     }

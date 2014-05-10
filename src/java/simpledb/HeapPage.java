@@ -14,17 +14,17 @@ import java.io.*;
  */
 public class HeapPage implements Page {
 
-    final HeapPageId pid;
-    final TupleDesc td;
-    final byte header[];
-    final Tuple tuples[];
-    final int numSlots;
+    private final HeapPageId pid;
+    private final TupleDesc td;
+    private final byte header[];
+    private final Tuple tuples[];
+    private final int numSlots;
 
-    byte[] oldData;
+    private byte[] oldData;
     private final Byte oldDataLock=new Byte((byte)0);
 
-    boolean dirty;
-    TransactionId dirtytid;
+    private boolean dirty;
+    private TransactionId dirtytid;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -253,6 +253,7 @@ public class HeapPage implements Page {
         if (!isSlotUsed(t.getRecordId().tupleno()) || !t.getRecordId().getPageId().equals(pid)) {
                 throw new DbException("Tuple is not in the page");
         }
+        //unmark slot and set to null
         markSlotUsed(t.getRecordId().tupleno(), false);
         t.setRecordId(new RecordId(null, 0));
     }
@@ -271,8 +272,10 @@ public class HeapPage implements Page {
                 throw new DbException("Page is full or tuple is not compatible");
         }
         for (int i = 0; i < numSlots; i++) {
+                //if slot isn't used
                 if (!isSlotUsed(i)) {
                         RecordId newRecord = new RecordId(this.pid, 1);
+                        //mark slot used and set the record
                         markSlotUsed(i, true);
                         t.setRecordId(newRecord);
                         tuples[i] = t;

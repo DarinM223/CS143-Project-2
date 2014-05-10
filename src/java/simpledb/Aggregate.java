@@ -16,9 +16,13 @@ public class Aggregate extends Operator {
     private int afield;
     private int gfield;
     private Aggregator.Op aop;
+
     private Aggregator aggregator;
-    private boolean first = true;
+    //whether it is the first time calling open()
+    private boolean first;
+    //iterator to loop through aggregator
     private DbIterator it;
+
     private TupleDesc tupleDesc;
 
     /**
@@ -45,7 +49,10 @@ public class Aggregate extends Operator {
         this.afield = afield;
         this.gfield = gfield;
         this.aop = aop;
+        this.first = true;
 
+        //Initalize aggregator with either an IntegerAggregator or a StringAggregator
+        //if -1 is specified for gfield, initialize with no grouping
         if (child.getTupleDesc().getFieldType(afield) == Type.INT_TYPE) {
                 if (gfield != -1) {
                         aggregator = new IntegerAggregator(gfield, child.getTupleDesc().getFieldType(gfield), afield, aop);
@@ -131,10 +138,13 @@ public class Aggregate extends Operator {
         child.open();
         super.open();
 
+        //if this is the first time opening
         if (first) {
+                //load up the aggregator with all of the tuples in child
                 while (child.hasNext()) {
                         aggregator.mergeTupleIntoGroup(child.next());
                 }
+                //open the iterator to the aggregator
                 it = aggregator.iterator();
                 it.open();
                 first = false;
