@@ -70,43 +70,27 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
 
-
         Page p;
-        if (!PageId_to_Page.containsKey(pid)) {
-                DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-                p = dbfile.readPage(pid);
-                PageId_to_Page.put(pid, p);
-        } else {
+        //check if the page is in the bufferpool
+        if (!PageId_to_Page.containsKey(pid))
+        {
+        	//it is not in the bufferpool, must get from dbfile
+        	//check to see if the buffer is full. if it is then evict
+            if(PageId_to_Page.size() == numPages)
+            {
+                // Buffer is full, evict a page before adding
+                evictPage();
+            }
+            
+            //now add from dbfile
+            DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            p = dbfile.readPage(pid);
+            PageId_to_Page.put(pid, p);
+        } 
+        //if it is then simply get it
+        else
                 p = PageId_to_Page.get(pid);
-        }
         return p;
-
-    	//if page is already in the BufferPool
-    	//if(PageId_to_Page.contains(pid))
-    	//{
-    	//	return PageId_to_Page.get(pid);
-    	//} else {
-    	//	//Need to get page from disk
-    	//	List<Table> tableList = Database.getCatalog().get_list_of_tables();
-    	//	for(Table table : tableList)
-    	//	{
-    	//		if(table.file.getId() == pid.getTableId())
-    	//		{
-    	//			Page diskPage = table.file.readPage(pid);
-    	//			
-    	//			//check to see if full
-    	//			if(m_max_pages == PageId_to_Page.size())
-    	//			{
-    	//				evictPage();				
-    	//			}
-    	//			PageId_to_Page.put(pid, diskPage);
-    	//			
-    	//			return diskPage;
-    	//		}
-    	//	}
-    	//	//if the page is not found in the BufferPool
-    	//	throw new DbException("Requested page not found in database");
-    	//}
     }
 
     /**
@@ -171,6 +155,8 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+    	
+    	//add the tuple
     	DbFile Dbf = Database.getCatalog().getDatabaseFile(tableId);
     	ArrayList<Page> pages = Dbf.insertTuple(tid, t);
     	for(Page p : pages)
@@ -217,6 +203,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
     	
+    	for(PageId pidIterator : PageId_to_Page.keySet())
+    	{
+    		flushPage(pidIterator);
+    	}
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -260,26 +250,26 @@ public class BufferPool {
         // not necessary for lab1
     	boolean evicted = false;
         Page page;
-        // Random replacement policy
         for (PageId i : PageId_to_Page.keySet())
         {
+        	//search for the page
             page = PageId_to_Page.get(i);
-            // Flush to disk, evict the page
             try
             {
+            	//flush to disk
                 flushPage(i);
+                //remove the page from buffer
                 PageId_to_Page.remove(i);
                 evicted = true;
                 break;
             }
             catch (IOException e) 
             { 
-            	e.printStackTrace();
+            	throw new RuntimeException();
             }
         }
         if (!evicted) {
             throw new DbException("Error: Cannot evict page");
         }
     }
-
 }
